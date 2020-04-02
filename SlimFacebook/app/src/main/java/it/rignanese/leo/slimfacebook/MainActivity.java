@@ -111,7 +111,7 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
         ShareLinkHandler();//handle a link shared (if there is)
 
         SetupWebView();//setup webview
-        SetupWebViewClient();
+        SetupWebViewClient();//set WebClient to be able to intercept traffic and make direct injections into css
         SetupFullScreenVideo();
 
         SetupOnLongClickListener();
