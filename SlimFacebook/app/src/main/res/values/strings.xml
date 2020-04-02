@@ -39,6 +39,8 @@ SlimSocial for Facebook is an Open Source app realized by Leonardo Rignanese
     <string name="summary_theme">Choose the theme that you like</string>
     <string name="title_fixedBar">Fixed top bar</string>
     <string name="summary_fixedBar">The blue bar will remain stuck on the top</string>
+    <string name="title_noBar">No top bar</string>
+    <string name="summary_noBar">The blue bar will be removed from the top</string>
     <string name="title_hideSponsoredPosts">Don\'t show sponsored posts</string>
     <string name="summary_hideSponsoredPosts">Some sponsored posts will be hidden</string>
     <string name="title_downloadImages">Save Data </string>
@@ -115,6 +117,15 @@ SlimSocial for Facebook is an Open Source app realized by Leonardo Rignanese
     <string name="myWebsite" translatable="false">https://rignaneseleo.github.io/</string>
     <string name="supportMyProjects">It contains info about me and links to support my projects</string>
     <string name="visitMyWebsite">Visit my website</string>
+    <string name="urlFacebookMobileNotifications">https://touch.facebook.com/notifications.php</string>
+    <string name="urlFacebookMobileMessages">" https://touch.facebook.com/messages/?no_hist=1"</string>
+    <string name="urlFacebookMobileFriends">https://touch.facebook.com/friends/center/requests/?rfj</string>
+    <string name="urlFacebookMobileBookmarks">https://touch.facebook.com/bookmarks</string>
+    <string name="friends">Friendlist</string>
+    <string name="notifications">Notifications</string>
+    <string name="search">Search</string>
+    <string name="bookmarks">Bookmarks</string>
+    <string name="urlFacebookMobileSearch">https://touch.facebook.com/search.php</string>
 
     <!--end other-->
 </resources>

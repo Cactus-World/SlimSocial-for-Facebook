@@ -15,13 +15,21 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.preference.PreferenceManager;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.WindowManager;
 import android.webkit.WebSettings;
+import android.webkit.WebView;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
+import com.google.android.material.appbar.AppBarLayout;
 
 import java.io.File;
 
@@ -34,7 +42,7 @@ import it.rignanese.leo.slimfacebook.utility.MyAdvancedWebView;
  * GITHUB: https://github.com/rignaneseleo/SlimSocial-for-Facebook
  */
 
-public class PictureActivity extends Activity implements MyAdvancedWebView.Listener {
+public class PictureActivity extends AppCompatActivity implements MyAdvancedWebView.Listener {
     private MyAdvancedWebView webViewPicture;//the main webView where is shown facebook
     private SharedPreferences savedPreferences;//contains all the values of saved preferences
     private DownloadManager downloadManager;
@@ -42,10 +50,24 @@ public class PictureActivity extends Activity implements MyAdvancedWebView.Liste
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        savedPreferences = PreferenceManager.getDefaultSharedPreferences(this); // setup the sharedPreferences
+        //SetTheme();//set the activity theme
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_picture);
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        if (this.getActionBar() != null)
+        {
+            this.getActionBar().hide();
+        }
 
-        savedPreferences = PreferenceManager.getDefaultSharedPreferences(this); // setup the sharedPreferences
+        AppBarLayout appBarLayout = findViewById(R.id.appBarLayout);
+        SwipeRefreshLayout swipeRefreshLayout = findViewById(R.id.swipe_container);
+        int actionBarHeight = getSupportActionBar().getHeight();
+        ConstraintLayout.LayoutParams layoutParams = ((ConstraintLayout.LayoutParams) appBarLayout.getLayoutParams());
+        layoutParams.bottomToTop=swipeRefreshLayout.getId();
+        appBarLayout.setLayoutParams(layoutParams);
+
         downloadManager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
 
         BroadcastReceiver receiver = downloadCompletedReceiver;
@@ -130,7 +152,18 @@ public class PictureActivity extends Activity implements MyAdvancedWebView.Liste
                         Toast.LENGTH_LONG).show();
         }
     }
-
+    private void SetTheme() {
+        switch (savedPreferences.getString("pref_theme", "default")) {
+            case "DarkTheme": {
+                setTheme(R.style.DarkTheme);
+                break;
+            }
+            default: {
+                setTheme(R.style.DefaultTheme);
+                break;
+            }
+        }
+    }
     //*********************** MENU ****************************
     //add my menu
     @Override
@@ -198,6 +231,11 @@ public class PictureActivity extends Activity implements MyAdvancedWebView.Liste
 
     @Override
     public void onExternalPageRequest(String url) {
+    }
+
+    @Override
+    public void onLoadResource(WebView webView, String url) {
+
     }
 
     @Override

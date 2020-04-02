@@ -10,8 +10,11 @@
 		margin-top: 50px !important;
 		}
 	</string>
+    <string name="noBar" translatable="false">
+        #header div {display: block;  margin-top: -44px;}
+    </string>
     <string name="fixedBar" translatable="false">
-		#header{ position: fixed; z-index: 12; top: 0px; }
+		#header{ position: fixed; z-index: 12; top: 0px; visibility: none }
 
         #root{ padding-top: 44px; }
 
@@ -24,6 +27,7 @@
 		text-align: center !important;
 		}
 	</string>
+
     <string name="removeMessengerDownload" translatable="false">
 		._s15 {
 		display: none;

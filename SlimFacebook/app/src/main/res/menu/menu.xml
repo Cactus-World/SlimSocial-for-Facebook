@@ -1,25 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="it.rignanese.leo.slimfacebook.MainActivity">
     <item
-        android:id="@+id/messages"
-        android:icon="@drawable/messages"
-        android:showAsAction="always"
-        android:title="@string/messages" />
+        android:id="@+id/home"
+        android:icon="@drawable/home"
+        android:title="@string/home"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/friends"
+        android:icon="@drawable/friends"
+        android:title="@string/friends"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/message"
+        android:icon="@drawable/message"
+        android:title="@string/messages"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/notifications"
+        android:icon="@drawable/notifications"
+        android:title="@string/notifications"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/search"
+        android:icon="@drawable/search"
+        android:title="@string/search"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/bookmarks"
+        android:icon="@drawable/bookmarks"
+        android:title="@string/bookmarks"
+        app:showAsAction="always" />
+
     <item
         android:id="@+id/top"
         android:icon="@drawable/ic_action_hardware_keyboard_arrow_up"
-        android:showAsAction="always"
-        android:title="@string/top" />
-    <item
-        android:id="@+id/home"
-        android:icon="@drawable/ic_action_action_home"
-        android:showAsAction="always"
-        android:title="@string/home" />
+        android:title="@string/top"
+        app:showAsAction="ifRoom" />
     <item
         android:id="@+id/refresh"
         android:icon="@drawable/ic_action_notification_sync"
-        android:showAsAction="ifRoom"
-        android:title="@string/refresh" />
+        android:title="@string/refresh"
+        app:showAsAction="ifRoom" />
     <item
         android:id="@+id/openInBrowser"
         android:title="@string/openInBrowser" />

@@ -77,6 +77,8 @@
     <string name="holdImageToDownload">¡Mantén presionada la imagen para descargar!</string>
     <string name="title_rate">Califica esta aplicación con 5 estrellas</string>
     <string name="summary_rate">Puedes apoyarme calificando mi app con 5 estrellas en la PlayStore. Por favor, si algo no funciona, ponte en contacto conmigo antes de calificar de forma negativa</string>
+    <string name="title_noBar">No barra superior</string>
+    <string name="summary_noBar">La barra azul esta removido en la parte superior</string>
 </resources>
     <!-- PLAY STORE PAGE
 

@@ -19,6 +19,7 @@ import android.os.Message;
 import android.util.AttributeSet;
 import android.util.Base64;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.ClientCertRequest;
@@ -29,6 +30,7 @@ import android.webkit.HttpAuthHandler;
 import android.webkit.JsPromptResult;
 import android.webkit.JsResult;
 import android.webkit.PermissionRequest;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.SslErrorHandler;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
@@ -76,9 +78,11 @@ public class MyAdvancedWebView extends WebView {
                                  long contentLength, String contentDisposition, String userAgent);
 
         void onExternalPageRequest(String url);
+        void onLoadResource(WebView webView, String url);
 
         //method by rignaneseleo
         boolean shouldLoadUrl(String url);
+
     }
 
     public static final String PACKAGE_NAME_DOWNLOAD_MANAGER = "com.android.providers.downloads";
@@ -1019,6 +1023,11 @@ public class MyAdvancedWebView extends WebView {
         //keep loading
         return mListener.shouldLoadUrl(url);
     }
+@Override
+public boolean onTouchEvent(MotionEvent motionEvent)
+{
+    return super.onTouchEvent(motionEvent);
+}
 
     protected static String makeUrlUnique(final String url) {
         StringBuilder unique = new StringBuilder();

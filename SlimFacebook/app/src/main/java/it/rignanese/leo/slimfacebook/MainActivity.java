@@ -1,7 +1,6 @@
 package it.rignanese.leo.slimfacebook;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -14,7 +13,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.preference.PreferenceManager;
-import android.support.v4.widget.SwipeRefreshLayout;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -23,12 +21,29 @@ import android.view.View;
 import android.view.WindowManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.webkit.WebResourceRequest;
+
 import android.widget.FrameLayout;
 import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.google.android.material.appbar.AppBarLayout;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.ref.WeakReference;
+import java.util.HashMap;
+import java.util.Map;
 
 import it.rignanese.leo.slimfacebook.settings.SettingsActivity;
 import it.rignanese.leo.slimfacebook.utility.Dimension;
@@ -41,11 +56,11 @@ import static it.rignanese.leo.slimfacebook.R.id.webView;
  * GNU GENERAL PUBLIC LICENSE  Version 2, June 1991
  * GITHUB: https://github.com/rignaneseleo/SlimSocial-for-Facebook
  */
-public class MainActivity extends Activity implements MyAdvancedWebView.Listener {
+public class MainActivity extends AppCompatActivity implements MyAdvancedWebView.Listener {
 
     private SwipeRefreshLayout swipeRefreshLayout;//the layout that allows the swipe refresh
     private MyAdvancedWebView webViewFacebook;//the main webView where is shown facebook
-
+    private WebViewClient webViewClient;
     private SharedPreferences savedPreferences;//contains all the values of saved preferences
 
     private boolean noConnectionError = false;//flag: is true if there is a connection error. It should reload the last useful page
@@ -72,8 +87,20 @@ public class MainActivity extends Activity implements MyAdvancedWebView.Listener
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        getActionBar().hide();
+        AppBarLayout appBarLayout = findViewById(R.id.appBarLayout);
+        SwipeRefreshLayout swipeRefreshLayout = findViewById(R.id.swipe_container);
+        int actionBarHeight = getSupportActionBar().getHeight();
+        ConstraintLayout.LayoutParams layoutParams = ((ConstraintLayout.LayoutParams) appBarLayout.getLayoutParams());
+        layoutParams.bottomToTop=swipeRefreshLayout.getId();
+        appBarLayout.setLayoutParams(layoutParams);
+        //swipeRefreshLayout.setPadding(0, Dimension.heightForFixedFacebookNavbar(getApplicationContext()),0,0);
         // if the app is being launched for the first time
+        //swipeRefreshLayout.setSize(swipeRefreshLayout.getHeight()+88);
+        //swipeRefreshLayout.setTranslationY(-88);
+        MyAdvancedWebView myAdvancedWebView = findViewById(webView);
         if (savedPreferences.getBoolean("first_run", true)) {
             savedPreferences.edit().putBoolean("first_run", false).apply();
         }
@@ -84,11 +111,11 @@ public class MainActivity extends Activity implements MyAdvancedWebView.Listener
         ShareLinkHandler();//handle a link shared (if there is)
 
         SetupWebView();//setup webview
-
+        SetupWebViewClient();
         SetupFullScreenVideo();
 
         SetupOnLongClickListener();
-
+        SetupWebViewClient();
         if (isSharer) {//if is a share request
             Log.d("MainActivity.OnCreate", "Loading shared link");
             webViewFacebook.loadUrl(urlSharer);//load the sharer url
@@ -98,6 +125,44 @@ public class MainActivity extends Activity implements MyAdvancedWebView.Listener
             webViewFacebook.loadUrl(FromDesktopToMobileUrl(getIntent().getDataString()));
         } else GoHome();//load homepage
 
+    }
+
+    private void SetupWebViewClient() {
+        this.webViewFacebook.setWebViewClient(new WebViewClient() {
+            @Override
+            public WebResourceResponse shouldInterceptRequest ( WebView webView, WebResourceRequest webResourceRequest){
+                String url_css = webResourceRequest.getUrl().toString();
+                if (savedPreferences.getBoolean("pref_noBar", true)) {
+                    if (webResourceRequest.getUrl().toString().contains("jT1iNd9vJ-t.css")) {
+                        ByteArrayInputStream css = new ByteArrayInputStream(getString(R.string.jT1iNd9vJ_t_css).getBytes());
+                        HashMap<String,String> responseHeaders = new HashMap<String, String>();
+                        responseHeaders.put("access-control-allow-origin","*");
+                        responseHeaders.put("timing-allow-origin","*");
+                        WebResourceResponse webResourceResponse = getCssWebResourceResponseFromAsset();//new WebResourceResponse("text/css", "utf-8", css);
+                        webResourceResponse.setResponseHeaders(responseHeaders);
+                        return webResourceResponse;
+                        //return getCssWebResourceResponseFromAsset();
+                    } else {
+                        return super.shouldInterceptRequest(webView, webResourceRequest);
+                    }
+
+                }
+            else
+                {
+                    return super.shouldInterceptRequest(webView,webResourceRequest);
+                }
+            }});
+
+    }
+    private WebResourceResponse getCssWebResourceResponseFromAsset() {
+        try {
+            return getUtf8EncodedCssWebResourceResponse(getAssets().open("style/jT1iNd9vJ-t.css"));
+        } catch (IOException e) {
+            return null;
+        }
+    }
+    private WebResourceResponse getUtf8EncodedCssWebResourceResponse(InputStream data) {
+        return new WebResourceResponse("text/css", "UTF-8", data);
     }
 
     @SuppressLint("NewApi")
@@ -192,7 +257,6 @@ public class MainActivity extends Activity implements MyAdvancedWebView.Listener
         webViewFacebook.addPermittedHostname("touch.facebook.com");
         webViewFacebook.addPermittedHostname("messenger.com");
 */
-
         webViewFacebook.requestFocus(View.FOCUS_DOWN);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);//remove the keyboard issue
 
@@ -225,6 +289,7 @@ public class MainActivity extends Activity implements MyAdvancedWebView.Listener
         settings.setLoadsImagesAutomatically(!savedPreferences.getBoolean("pref_doNotDownloadImages", false));//to save data
 
         settings.setDisplayZoomControls(false);
+        settings.setAllowUniversalAccessFromFileURLs(true);
     }
 
     private void SetupOnLongClickListener() {
@@ -349,7 +414,22 @@ public class MainActivity extends Activity implements MyAdvancedWebView.Listener
             webViewFacebook.loadUrl(getString(R.string.urlFacebookMobile) + "?sk=h_nor");
         }
     }
+    private void GoNotifications() {
+            webViewFacebook.loadUrl(getString(R.string.urlFacebookMobileNotifications));
 
+    }
+    private void GoMessages() {
+        webViewFacebook.loadUrl(getString(R.string.urlFacebookMobileMessages));
+    }
+    private void GoFriends() {
+            webViewFacebook.loadUrl(getString(R.string.urlFacebookMobileFriends));
+    }
+    private void GoBookmarks() {
+        webViewFacebook.loadUrl(getString(R.string.urlFacebookMobileBookmarks));
+    }
+    private void GoSearch() {
+        webViewFacebook.loadUrl(getString(R.string.urlFacebookMobileSearch));
+    }
     private void RefreshPage() {
         if (noConnectionError) {
             webViewFacebook.goBack();
@@ -369,6 +449,8 @@ public class MainActivity extends Activity implements MyAdvancedWebView.Listener
             //open the activity to show the pic
             startActivity(new Intent(this, PictureActivity.class).putExtra("URL", url));
         }
+        //webViewFacebook.loadUrl(url);
+        //ApplyCustomCss();
 
         return !b;
     }
@@ -376,12 +458,13 @@ public class MainActivity extends Activity implements MyAdvancedWebView.Listener
     @Override
     public void onPageStarted(String url, Bitmap favicon) {
         swipeRefreshLayout.setRefreshing(true);
-    }
 
+    }
     @Override
     public void onPageFinished(String url) {
         ApplyCustomCss();
-
+       // MyAdvancedWebView myAdvancedWebView = findViewById(webView);
+        //myAdvancedWebView.scrollBy(0,88);
         if (savedPreferences.getBoolean("pref_enableMessagesShortcut", false)) {
             webViewFacebook.loadUrl(getString(R.string.fixMessages));
         }
@@ -412,7 +495,16 @@ public class MainActivity extends Activity implements MyAdvancedWebView.Listener
         }
     }
 
+@Override
+    public void onLoadResource(WebView webView, String URL)
+{
+    if (URL.matches("bookmarks"))
+    {
 
+    }
+
+
+}
     public boolean isInternetAvailable() {
         NetworkInfo networkInfo = ((ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE)).getActiveNetworkInfo();
         return networkInfo != null && networkInfo.isAvailable() && networkInfo.isConnected();
@@ -488,10 +580,10 @@ public class MainActivity extends Activity implements MyAdvancedWebView.Listener
                 }
                 break;
             }
-            case R.id.messages: {//open messages
+            /*case R.id.messages: {//open messages
                 startActivity(new Intent(this, MessagesActivity.class));
                 break;
-            }
+            }*/
             case R.id.refresh: {//refresh the page
                 RefreshPage();
                 break;
@@ -529,6 +621,26 @@ public class MainActivity extends Activity implements MyAdvancedWebView.Listener
                 return true;
             }
 
+            case R.id.message: {
+                GoMessages();
+                break;
+            }
+            case R.id.notifications: {
+                GoNotifications();
+                break;
+            }
+            case R.id.bookmarks: {
+                GoBookmarks();
+                break;
+            }
+            case R.id.search: {
+                GoSearch();
+                break;
+            }
+            case R.id.friends: {
+                GoFriends();
+                break;
+            }
             default:
                 break;
         }
@@ -561,9 +673,13 @@ public class MainActivity extends Activity implements MyAdvancedWebView.Listener
             css += (getString(R.string.fixedBar).replace("$s", ""
                     + Dimension.heightForFixedFacebookNavbar(getApplicationContext())));
         }
+        /*if (savedPreferences.getBoolean("pref_noBar", true)) {
+            css += getString(R.string.noBar);
+        }*/
         if (savedPreferences.getBoolean("pref_removeMessengerDownload", true)) {
             css += getString(R.string.removeMessengerDownload);
         }
+
 
         switch (savedPreferences.getString("pref_theme", "standard")) {
             case "DarkTheme":

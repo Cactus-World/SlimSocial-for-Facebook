@@ -1,7 +1,11 @@
 package it.rignanese.leo.slimfacebook.utils;
 
 import android.content.Context;
-import android.preference.SwitchPreference;
+import androidx.preference.Preference;
+
+import androidx.preference.PreferenceViewHolder;
+import androidx.preference.SwitchPreferenceCompat;
+
 import android.util.AttributeSet;
 
 /**
@@ -9,7 +13,7 @@ import android.util.AttributeSet;
  * GNU GENERAL PUBLIC LICENSE  Version 2, June 1991
  * GITHUB: https://github.com/rignaneseleo/SlimSocial-for-Facebook
  */
-public class SwitchWithoutBugs extends SwitchPreference {
+public class SwitchWithoutBugs extends SwitchPreferenceCompat {
     public SwitchWithoutBugs(Context context) {
         super(context);
     }
@@ -20,5 +24,10 @@ public class SwitchWithoutBugs extends SwitchPreference {
 
     public SwitchWithoutBugs(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+    }
+    @Override
+    public void onBindViewHolder(PreferenceViewHolder holder)
+    {
+        super.onBindViewHolder(holder);
     }
 }

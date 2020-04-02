@@ -21,10 +21,15 @@
             android:title="@string/title_addSpaceBetweenPosts" />
 
         <it.rignanese.leo.slimfacebook.utils.SwitchWithoutBugs
-            android:defaultValue="true"
+            android:defaultValue="false"
             android:key="pref_fixedBar"
             android:summary="@string/summary_fixedBar"
             android:title="@string/title_fixedBar" />
+        <it.rignanese.leo.slimfacebook.utils.SwitchWithoutBugs
+            android:defaultValue="true"
+            android:key="pref_noBar"
+            android:summary="@string/summary_noBar"
+            android:title="@string/title_noBar" />
 
         <it.rignanese.leo.slimfacebook.utils.SwitchWithoutBugs
             android:defaultValue="false"

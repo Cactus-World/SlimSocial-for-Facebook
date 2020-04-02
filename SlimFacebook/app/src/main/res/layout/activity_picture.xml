@@ -1,14 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:app="http://schemas.android.com/apk/res-auto"
+xmlns:tools="http://schemas.android.com/tools"
+android:id="@+id/rootLayout"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+tools:context=".PictureActivity">
+
+<com.google.android.material.appbar.AppBarLayout
+    android:id="@+id/appBarLayout"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:background="@android:color/black"
+    android:gravity="left"
+    android:isScrollContainer="false"
+    android:measureWithLargestChild="false"
+    android:textAlignment="gravity"
+    android:theme="@style/DefaultTheme.AppBarOverlay"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toTopOf="parent">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="left"
+        android:backgroundTint="#f6eadb"
+        android:foregroundGravity="fill_horizontal|left|fill_vertical"
+        android:gravity="fill_horizontal|left"
+        android:minHeight="0dp"
+        android:visibility="visible"
+        app:popupTheme="@style/DefaultTheme.PopupOverlay"
+        app:titleTextAppearance="@style/TextAppearance.AppCompat.Medium" />
+
+
+</com.google.android.material.appbar.AppBarLayout>
+
+<androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+    android:id="@+id/swipe_container"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintLeft_toLeftOf="parent"
+    app:layout_constraintRight_toRightOf="parent"
+    app:layout_constraintTop_toBottomOf="@id/appBarLayout">
+</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+<it.rignanese.leo.slimfacebook.utility.MyAdvancedWebView
+    android:id="@+id/webViewPicture"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".PictureActivity">
+    android:layout_gravity="center" />
 
-    <it.rignanese.leo.slimfacebook.utility.MyAdvancedWebView
-        android:id="@+id/webViewPicture"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_gravity="center" />
-
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

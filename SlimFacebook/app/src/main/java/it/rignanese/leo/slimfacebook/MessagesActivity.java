@@ -8,13 +8,15 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.support.v4.widget.SwipeRefreshLayout;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.WebSettings;
+import android.webkit.WebView;
+
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import it.rignanese.leo.slimfacebook.utility.MyAdvancedWebView;
 
@@ -140,6 +142,11 @@ public class MessagesActivity extends Activity implements MyAdvancedWebView.List
     }
 
     @Override
+    public void onLoadResource(WebView webView, String url) {
+
+    }
+
+    @Override
     public boolean shouldLoadUrl(String url) {
         return true;
     }
@@ -152,6 +159,7 @@ public class MessagesActivity extends Activity implements MyAdvancedWebView.List
         getMenuInflater().inflate(R.menu.messages_menu, menu);
         return true;
     }
+
 
     //handling the tap on the menu's items
     @Override

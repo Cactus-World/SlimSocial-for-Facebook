@@ -86,4 +86,6 @@
     <string name="noNotificationEnjoyLife">Ich suche nach dem besten Weg, sie zu implementieren. Genießen Sie in der Zwischenzeit ein Leben ohne Facebook Unterbrechungen :)</string>
     <string name="download">Herunterladen</string>
     <string name="share">Teilen</string>
+    <string name="title_noBar">Kein Menü am oberen Rand</string>
+    <string name="summary_noBar">Das blaue Menü wird vom oberen Rand entfernt</string>
 </resources>

@@ -81,4 +81,6 @@
     <string name="summary_enableMessagesShortcut">En activant ceci, l\'onglet messages SlimSocial s\'ouvrira lorsque vous appuyez sur l\'icone Facebook messages </string>
     <string name="title_useSlimSocialSubfolderToDownloadedFiles">Utilisez le sous-dossier \'SlimSocial\'</string>
     <string name="summary_useSlimSocialSubfolderToDownloadedFiles">Enregistrer les images dans un sous-dossier plutôt que dans le dossier \'Téléchargements\'</string>
+    <string name="title_noBar">no barre supérieure</string>
+    <string name="summary_noBar">La barre bleue est éliminée sur le dessus</string>
 </resources>

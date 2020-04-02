@@ -5,24 +5,32 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.preference.Preference;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceFragment;
+import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.PreferenceManager;
+import androidx.preference.SwitchPreferenceCompat;
+
 import android.preference.PreferenceActivity;
-import android.preference.PreferenceFragment;
-import android.preference.PreferenceManager;
 import android.widget.Toast;
+
+import androidx.preference.SwitchPreferenceCompat;
 
 import it.rignanese.leo.slimfacebook.MainActivity;
 import it.rignanese.leo.slimfacebook.R;
+import it.rignanese.leo.slimfacebook.utils.SwitchWithoutBugs;
 
 /**
  * SlimSocial for Facebook is an Open Source app realized by Leonardo Rignanese <rignanese.leo@gmail.com>
  * GNU GENERAL PUBLIC LICENSE  Version 2, June 1991
  * GITHUB: https://github.com/rignaneseleo/SlimSocial-for-Facebook
  */
-public class SettingsActivity extends PreferenceActivity implements
+public class SettingsActivity extends AppCompatActivity implements
         SharedPreferences.OnSharedPreferenceChangeListener {
     private static String appVersion;
-
+    protected SwitchPreferenceCompat noBar,fixedBar;
     //using a PreferenceFragment along with the PreferenceActivity (see there
     // http://alvinalexander.com/android/android-tutorial-preferencescreen-preferenceactivity-preferencefragment )
 
@@ -38,7 +46,8 @@ public class SettingsActivity extends PreferenceActivity implements
         }
 
         //load the fragment
-        getFragmentManager().beginTransaction().replace(android.R.id.content, new MyPreferenceFragment()).commit();
+        getSupportFragmentManager().beginTransaction().replace(android.R.id.content, new MyPreferenceFragment(this)).commit();
+
     }
 
     //read the appVersion
@@ -72,6 +81,24 @@ public class SettingsActivity extends PreferenceActivity implements
             case "pref_recentNewsFirst":
             case "pref_centerTextPosts":
             case "pref_fixedBar":
+                if (sharedPreferences.getBoolean("pref_fixedBar",false)){
+                    //sharedPreferences.edit().putBoolean("pref_noBar",false);
+                    //((CheckBoxPreference) findPreference("pref_noBar")).setChecked(false);
+                    SharedPreferences.Editor sharedPreferencesEditor = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).edit();
+                    sharedPreferencesEditor.putBoolean("pref_noBar",false);
+                    sharedPreferencesEditor.commit();
+                    this.noBar.setChecked(false);
+                }
+            case "pref_noBar":
+                if (sharedPreferences.getBoolean("pref_noBar",false)) {
+                    //sharedPreferences.edit().putBoolean("pref_fixedBar", false);
+//                    ((CheckBoxPreference) findPreference("pref_fixedBar")).setChecked(false);
+                    SharedPreferences.Editor sharedPreferencesEditor = PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).edit();
+                    sharedPreferencesEditor.putBoolean("pref_fixedBar",false);
+                    sharedPreferencesEditor.commit();
+                    this.fixedBar.setChecked(false);
+
+                }
             case "pref_addSpaceBetweenPosts":
             case "pref_enableMessagesShortcut": {
                 Toast.makeText(SettingsActivity.this, R.string.refreshToApply, Toast.LENGTH_SHORT).show();
@@ -104,16 +131,24 @@ public class SettingsActivity extends PreferenceActivity implements
     }
 
     //preference fragment
-    public static class MyPreferenceFragment extends PreferenceFragment {
+    public static class MyPreferenceFragment extends PreferenceFragmentCompat {
+        private SettingsActivity settingsActivity;
+        public MyPreferenceFragment(SettingsActivity parent)
+        {
+            this.settingsActivity=parent;
+        }
         @Override
-        public void onCreate(final Bundle savedInstanceState) {
-            super.onCreate(savedInstanceState);
-            addPreferencesFromResource(R.xml.settings);//load the layout
-
+        public void onCreatePreferences(final Bundle savedInstanceState,String rootKey) {
+            //super.onCreate(savedInstanceState);
+            setPreferencesFromResource(R.xml.settings,rootKey);//load the layout
+            this.settingsActivity.noBar = (SwitchPreferenceCompat) findPreference("pref_noBar");
+            this.settingsActivity.fixedBar = (SwitchPreferenceCompat) findPreference("pref_fixedBar");
             //set the appVersion
             Preference version = findPreference("pref_key_version");
             version.setSummary(appVersion);// set the current version
+
         }
+
     }
 }
 
