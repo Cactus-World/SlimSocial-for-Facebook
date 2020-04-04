@@ -9,6 +9,11 @@ SlimSocial for Facebook is an Open Source app realized by Leonardo Rignanese
     <string name="actionbar_name" translatable="false">SlimSocial</string>
     <string name="urlFacebookMobile" translatable="false">https://touch.facebook.com/home.php</string>
     <string name="urlMessages" translatable="false">https://mbasic.facebook.com/messages</string>
+    <string name="urlFacebookMobileNotifications" translatable="false">https://touch.facebook.com/notifications.php</string>
+    <string name="urlFacebookMobileMessages" translatable="false">https://touch.facebook.com/messages/?no_hist=1</string>
+    <string name="urlFacebookMobileFriends" translatable="false">https://touch.facebook.com/friends/center/requests/?rfj</string>
+    <string name="urlFacebookMobileBookmarks" translatable="false">https://touch.facebook.com/bookmarks</string>
+    <string name="urlFacebookMobileSearch" translatable="false">https://touch.facebook.com/search.php</string>
     <string name="home" translatable="false">Home</string>
     <string name="top" translatable="false">Top</string>
     <string name="mainDeveloper" translatable="false">Leonardo Rignanese</string>
@@ -117,15 +122,10 @@ SlimSocial for Facebook is an Open Source app realized by Leonardo Rignanese
     <string name="myWebsite" translatable="false">https://rignaneseleo.github.io/</string>
     <string name="supportMyProjects">It contains info about me and links to support my projects</string>
     <string name="visitMyWebsite">Visit my website</string>
-    <string name="urlFacebookMobileNotifications">https://touch.facebook.com/notifications.php</string>
-    <string name="urlFacebookMobileMessages">" https://touch.facebook.com/messages/?no_hist=1"</string>
-    <string name="urlFacebookMobileFriends">https://touch.facebook.com/friends/center/requests/?rfj</string>
-    <string name="urlFacebookMobileBookmarks">https://touch.facebook.com/bookmarks</string>
     <string name="friends">Friendlist</string>
     <string name="notifications">Notifications</string>
     <string name="search">Search</string>
     <string name="bookmarks">Bookmarks</string>
-    <string name="urlFacebookMobileSearch">https://touch.facebook.com/search.php</string>
 
     <!--end other-->
 </resources>
