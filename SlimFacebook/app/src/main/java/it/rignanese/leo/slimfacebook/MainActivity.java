@@ -8,15 +8,20 @@ import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.VectorDrawable;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
+import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -24,16 +29,22 @@ import android.os.Message;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.ContextMenu;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.ClientCertRequest;
+import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
+import android.webkit.HttpAuthHandler;
+import android.webkit.SslErrorHandler;
 import android.webkit.ValueCallback;
 import android.webkit.WebBackForwardList;
 import android.webkit.WebChromeClient;
 import android.webkit.WebHistoryItem;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -50,15 +61,25 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.appbar.AppBarLayout;
 
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.UnsupportedEncodingException;
 import java.lang.ref.WeakReference;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -66,7 +87,7 @@ import it.rignanese.leo.slimfacebook.settings.SettingsActivity;
 import it.rignanese.leo.slimfacebook.utility.Dimension;
 import it.rignanese.leo.slimfacebook.utility.MyAdvancedWebView;
 
-import static it.rignanese.leo.slimfacebook.R.id.center;
+import static android.graphics.Bitmap.createBitmap;
 import static it.rignanese.leo.slimfacebook.R.id.webView;
 
 /**
@@ -79,13 +100,14 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
     private SwipeRefreshLayout swipeRefreshLayout;//the layout that allows the swipe refresh
     private MyAdvancedWebView webViewFacebook;//the main webView where is shown facebook
     private WebViewClient webViewClient;
+    private WebViewClient originalWebViewClient;
     private SharedPreferences savedPreferences;//contains all the values of saved preferences
 
     private boolean noConnectionError = false;//flag: is true if there is a connection error. It should reload the last useful page
 
     private boolean isSharer = false;//flag: true if the app is called from sharer
     private String urlSharer = "";//to save the url got from the sharer
-
+    private boolean cssLoaded = false;
     // create link handler (long clicked links)
     private final MyHandler linkHandler = new MyHandler(this);
 
@@ -93,8 +115,138 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
     private FrameLayout mTargetView;
     private WebChromeClient myWebChromeClient;
     private WebChromeClient.CustomViewCallback mCustomViewCallback;
+    private android.webkit.CookieManager cookieManager;
+
+    private class WebResourceRetrievalResponse {
+        private String webResourceRetrievalType;
+        private String webResourceContentEncoding;
+        private String webResourceRetrievalContent;
+        private String webResourceRetrievalStatusReason;
+        private int webResourceRetrievalStatusCode;
+        private HashMap webResourceRetrievalHeaders;
+        private byte[] webResourceRetrievalByteContent;
+
+        public WebResourceRetrievalResponse() {
+            this.webResourceRetrievalType = null;
+            this.webResourceContentEncoding=null;
+            this.webResourceRetrievalContent = null;
+            this.webResourceRetrievalHeaders = new HashMap();
+            this.webResourceRetrievalByteContent = null;
+        }
+
+        public WebResourceRetrievalResponse(String type, String content) {
+            this.setWebResourceRetrievalType(type);
+            this.setWebResourceContentEncoding(null);
+            this.setWebResourceRetrievalContent(content);
+            this.webResourceRetrievalHeaders = new HashMap();
+            this.webResourceRetrievalByteContent = null;
+        }
+
+        public WebResourceRetrievalResponse(String type, int statusCode, String statusReason, Map responseHeaders) {
+            this.setWebResourceRetrievalType(type);
+            this.setWebResourceContentEncoding(null);
+            this.setWebResourceRetrievalStatusCode(statusCode);
+            this.setWebResourceRetrievalStatusReason(statusReason);
+            this.setWebResourceRetrievalHeaders(responseHeaders);
+        }
+
+        public WebResourceRetrievalResponse(String type,String encoding, int statusCode, String statusReason, Map responseHeaders) {
+            this.setWebResourceRetrievalType(type);
+            this.setWebResourceContentEncoding(encoding);
+            this.setWebResourceRetrievalContent(null);
+            this.setWebResourceRetrievalStatusCode(statusCode);
+            this.setWebResourceRetrievalStatusReason(statusReason);
+            this.setWebResourceRetrievalHeaders(responseHeaders);
+            this.webResourceRetrievalByteContent = null;
+            }
+        public WebResourceRetrievalResponse(String type,String encoding, int statusCode, String statusReason, Map responseHeaders, String content) {
+            this.setWebResourceRetrievalType(type);
+            this.setWebResourceContentEncoding(encoding);
+            this.setWebResourceRetrievalContent(content);
+            this.setWebResourceRetrievalStatusCode(statusCode);
+            this.setWebResourceRetrievalStatusReason(statusReason);
+            this.setWebResourceRetrievalHeaders(responseHeaders);
+            this.webResourceRetrievalByteContent = null;
+        }
+
+        public WebResourceRetrievalResponse(String type, String encoding, int statusCode, String statusReason, Map responseHeaders, byte[] byteContent) {
+            this.setWebResourceRetrievalType(type);
+            this.setWebResourceContentEncoding(encoding);
+            this.setWebResourceRetrievalContent(null);
+            this.setWebResourceRetrievalStatusCode(statusCode);
+            this.setWebResourceRetrievalStatusReason(statusReason);
+            this.setWebResourceRetrievalHeaders(responseHeaders);
+            this.setWebResourceRetrievalByteContent(byteContent);
+        }
+
+        public void setWebResourceRetrievalStatusCode(int statusCode) {
+            this.webResourceRetrievalStatusCode = statusCode;
+        }
+
+        public int getWebResourceRetrievalStatusCode() {
+            return webResourceRetrievalStatusCode;
+        }
+
+        public void setWebResourceRetrievalStatusReason(String statusReason) {
+            this.webResourceRetrievalStatusReason = statusReason;
+        }
+
+        public String getWebResourceRetrievalStatusReason() {
+            return webResourceRetrievalStatusReason;
+        }
+
+        public String getWebResourceRetrievalContent() {
+            return webResourceRetrievalContent;
+        }
+
+        public void setWebResourceRetrievalContent(String getWebResourceRetrievalContent) {
+            this.webResourceRetrievalContent = getWebResourceRetrievalContent;
+
+        }
+
+        public String getWebResourceRetrievalType() {
+            return webResourceRetrievalType;
+        }
+
+        public void setWebResourceRetrievalType(String webResourceRetrievalType) {
+            if (!webResourceRetrievalType.contains(";")) {
+                this.webResourceRetrievalType = webResourceRetrievalType;
+            } else {
+                this.webResourceRetrievalType = webResourceRetrievalType.substring(0, webResourceRetrievalType.indexOf(";"));
+            }
+        }
+
+        public HashMap getWebResourceRetrievalHeaders() {
+            return webResourceRetrievalHeaders;
+        }
+
+        public void setWebResourceRetrievalHeaders(Map webResourceRetrievalHeaders) {
+            this.webResourceRetrievalHeaders = new HashMap<String, List<String>>(webResourceRetrievalHeaders);
+        }
+
+        public void setWebResourceContentEncoding(String webResourceContentEncoding) {
+            this.webResourceContentEncoding = webResourceContentEncoding;
+        }
+
+        public String getWebResourceContentEncoding() {
+            return webResourceContentEncoding;
+        }
+
+        public byte[] getWebResourceRetrievalByteContent() {
+            return this.webResourceRetrievalByteContent;
+        }
+
+        public void setWebResourceRetrievalByteContent(byte[] byteContent) {
+            this.webResourceRetrievalByteContent = byteContent;
+        }
+    }
+
     private View mCustomView;
     private Menu menuBar;
+    private Drawable notifications;
+    private Drawable feed;
+    private Drawable message;
+    private Drawable friends;
     private int alphaSelected = 255;
     private int alphaNotSelected = 127;
     private String fbMobileNewsfeedUrl;
@@ -168,68 +320,127 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
         this.notificationStates.put("notifications", 0);
     }
 
-    private void SetupWebViewClient() {
-        this.webViewFacebook.setWebViewClient(new WebViewClient() {
-            @Override
-            public WebResourceResponse shouldInterceptRequest(WebView webView, WebResourceRequest webResourceRequest) {
-                String url_css = webResourceRequest.getUrl().toString();
-                if (savedPreferences.getBoolean("pref_noBar", true)) {
-                    if (webResourceRequest.getUrl().toString().contains(".css")) {
-                        String css = getCSSStringFromServer(webResourceRequest.getUrl());
-                        //ByteArrayInputStream css = new ByteArrayInputStream(getString(R.string.jT1iNd9vJ_t_css).getBytes());
-                        if (css != null) {
-                            Pattern pattern = Pattern.compile("\\._52z5\\{([^}]*)\\}");
-                            Matcher matcher = pattern.matcher(css);
-                            StringBuffer newCSSResponse = new StringBuffer();
-                            while (matcher.find()) {
-                                matcher.appendReplacement(newCSSResponse, "._52z5{display: none;" + matcher.group(1) + "}");
-                            }
-                            matcher.appendTail(newCSSResponse);
-                            HashMap<String, String> responseHeaders = new HashMap<String, String>();
-                            responseHeaders.put("access-control-allow-origin", "*");
-                            responseHeaders.put("timing-allow-origin", "*");
-                            //WebResourceResponse webResourceResponse = getCssWebResourceResponseFromAsset();//new WebResourceResponse("text/css", "utf-8", css);
-                            ByteArrayInputStream cssResponse = new ByteArrayInputStream(newCSSResponse.toString().getBytes());
-                            WebResourceResponse webResourceResponse = getUtf8EncodedCssWebResourceResponse(cssResponse);
-                            webResourceResponse.setResponseHeaders(responseHeaders);
-                            return webResourceResponse;
-                        }else
-                        {
-                            return super.shouldInterceptRequest(webView,webResourceRequest);
-                        }
-                        //return getCssWebResourceResponseFromAsset();
-                    } else {
-                        return super.shouldInterceptRequest(webView, webResourceRequest);
-                    }
 
-                } else {
-                    return super.shouldInterceptRequest(webView, webResourceRequest);
-                }
-            }
-        });
-
-    }
-
-    private String getCSSStringFromServer(Uri url) {
+    private WebResourceRetrievalResponse getWebResourceFromServer(Uri url, String method, Map<String, String> params) {
         ByteArrayInputStream byteArrayInputStream = null;
         HttpURLConnection httpURLConnection = null;
-        BufferedReader bufferedReader=null;
+        BufferedReader bufferedReader = null;
+        android.webkit.CookieManager cookieManager = CookieManager.getInstance();
+        //CookieHandler.setDefault(this.cookieManager);
+
         if (isInternetAvailable()) {
             try {
-                httpURLConnection = (HttpURLConnection) ((URL) new URL(url.toString())).openConnection();
+                httpURLConnection = (HttpURLConnection) (new URL(url.toString())).openConnection();
                 httpURLConnection.setRequestProperty("user-agent", "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36");
-                httpURLConnection.connect();
-                InputStream inputStream = httpURLConnection.getInputStream();
-                bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
-                StringBuffer buffer = new StringBuffer();
-                String line = "";
+                httpURLConnection.setUseCaches(true);
+                httpURLConnection.setDoInput(true);
+                httpURLConnection.setRequestMethod(method);
+                String cookieString = cookieManager.getCookie(url.toString());
+                if (method.equals("POST")) {
+                    httpURLConnection.setDoOutput(true);
+                    try {
+                        BufferedOutputStream outputStream = new BufferedOutputStream(httpURLConnection.getOutputStream());
+                        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(outputStream, "UTF-8"));
+                        Set paramList = params.keySet();
+                        Boolean firstArgumentSet = false;
+                        for (Object key : paramList) {
+                            if (((String) key).equals("X-XSRF-TOKEN"))
+                            {
+                                httpURLConnection.addRequestProperty("X-XSRF-TOKEN",(String)params.get(key));
+                            }
+                            if (firstArgumentSet) {
+                                bufferedWriter.write("&" + (String) key + "=" + (String) params.get(key));
+                            } else {
+                                bufferedWriter.write((String) key + "=" + (String) params.get(key));
+                                firstArgumentSet = true;
+                            }
 
-                while ((line = bufferedReader.readLine()) != null) {
-                    buffer.append(line + "\n");
-                    Log.d("Response: ", "> " + line);   //here u ll get whole response...... :-)
-
+                        }
+                        if (cookieString != null && !cookieString.isEmpty()) {
+                            bufferedWriter.write("&Cookie=" + cookieString);
+                        }
+                        bufferedWriter.flush();
+                        bufferedWriter.close();
+                        outputStream.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    httpURLConnection.addRequestProperty("Cookie", cookieString);
+                    Set paramList = params.keySet();
+                    for (Object key : paramList) {
+                        httpURLConnection.setRequestProperty((String) key, (String) params.get(key));
+                    }
                 }
-                return buffer.toString();
+                httpURLConnection.connect();
+                if (httpURLConnection.getHeaderField("Set-Cookie") != null) {
+                    cookieManager.setCookie(url.toString(), httpURLConnection.getHeaderField("Set-Cookie"));
+                }
+                List<String> setCookie = httpURLConnection.getHeaderFields().get("set-cookie");
+                int responseCode = httpURLConnection.getResponseCode();
+                String responseMessage = httpURLConnection.getResponseMessage();
+                //StringBuilder test= new StringBuilder();
+                Map<String, List<String>> responseHeaders = httpURLConnection.getHeaderFields();
+                /*for (Map.Entry<String, List<String>> responseHeader :responseHeaders.entrySet())
+                {
+                    if (responseHeader.getKey()==null)
+                    {
+                        continue;
+                    }
+                    test.append(responseHeader.getKey()+" : ");
+                    List  <String> responseHeaderValues = responseHeader.getValue();
+                    Iterator <String> it = responseHeaderValues.iterator();
+                    if (it.hasNext())
+                    {
+                        test.append(it.next());
+                        while (it.hasNext())
+                        {
+                            test.append("; "+it.next());
+                        }
+                    }
+                    test.append("\n");
+                }
+*/
+                //String test = httpURLConnection.getRequestMethod();
+                InputStream inputStream = httpURLConnection.getInputStream();
+
+                if (!((String) ((List<String>) responseHeaders.get("Content-Type")).get(0)).contains("image")) {
+                    bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+                    StringBuffer buffer = new StringBuffer();
+                    String line = "";
+
+                    while ((line = bufferedReader.readLine()) != null) {
+                        buffer.append(line + "\n");
+                        Log.d("Response: ", "> " + line);   //here u ll get whole response...... :-)
+
+                    }
+
+                    int i = responseHeaders.get("Content-Type").get(0).indexOf("charset=");
+                    String contentEncoding = (httpURLConnection.getContentEncoding() != null) ? httpURLConnection.getContentEncoding() : ((String) responseHeaders.get("Content-Type").get(0)).substring(responseHeaders.get("Content-Type").get(0).indexOf("charset=") + 8);
+                    contentEncoding = i>=0 ? contentEncoding : "chunked";
+                    return new WebResourceRetrievalResponse(httpURLConnection.getContentType(),contentEncoding, httpURLConnection.getResponseCode(), httpURLConnection.getResponseMessage(), responseHeaders, buffer.toString());
+                } else {
+                    int i = responseHeaders.get("Content-Type").get(0).indexOf("charset=");
+                    String contentEncoding = (httpURLConnection.getContentEncoding() != null) ? httpURLConnection.getContentEncoding() : ((String) responseHeaders.get("Content-Type").get(0)).substring(responseHeaders.get("Content-Type").get(0).indexOf("charset=") + 8);
+                    contentEncoding = i>=0 ? contentEncoding : "chunked";
+                    WebResourceRetrievalResponse webResourceRetrievalResponse = new WebResourceRetrievalResponse(httpURLConnection.getContentType(),contentEncoding, httpURLConnection.getResponseCode(), httpURLConnection.getResponseMessage(), responseHeaders);
+                    byte[] inputBytes = new byte[1000];
+                    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                    ArrayList<Byte> byteArrayList = new ArrayList<Byte>();
+                    int bytesRead = -1;
+                    while ((bytesRead = inputStream.read(inputBytes, 0, inputBytes.length)) != -1) {
+                        byteArrayOutputStream.write(inputBytes, 0, bytesRead);
+                    }
+
+                    webResourceRetrievalResponse.setWebResourceRetrievalByteContent(byteArrayOutputStream.toByteArray());
+                    try {
+                        if (byteArrayOutputStream != null)
+                            byteArrayOutputStream.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    return webResourceRetrievalResponse;
+                }
             } catch (Exception e) {
                 //Something went wrong
                 e.printStackTrace();
@@ -248,9 +459,9 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
         return null;
     }
 
-    private WebResourceResponse getCssWebResourceResponseFromAsset() {
+    private WebResourceResponse getCssWebResourceResponseFromAsset(String assetName) {
         try {
-            return getUtf8EncodedCssWebResourceResponse(getAssets().open("style/jT1iNd9vJ-t.css"));
+            return getUtf8EncodedCssWebResourceResponse(getAssets().open("style/"+assetName));
         } catch (IOException e) {
             return null;
         }
@@ -258,6 +469,18 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
 
     private WebResourceResponse getUtf8EncodedCssWebResourceResponse(InputStream data) {
         return new WebResourceResponse("text/css", "UTF-8", data);
+    }
+
+    private WebResourceResponse getUtf8EncodedHtmlWebResourceResponse(InputStream data) {
+        return new WebResourceResponse("text/html", "UTF-8", data);
+    }
+
+    private WebResourceResponse getUtf8EncodedWebResourceResponse(String type,String encoding, InputStream data) {
+        if (encoding != null ) {
+            return new WebResourceResponse(type, encoding, data);
+        } else {
+            return new WebResourceResponse(type, "UTF-8", data);
+        }
     }
 
     @SuppressLint("NewApi")
@@ -335,6 +558,7 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
     //*********************** SETUP ****************************
 
     private void SetupWebView() {
+
         webViewFacebook = findViewById(webView);
         webViewFacebook.setListener(this, this);
 
@@ -380,12 +604,308 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
         // set caching
         settings.setAppCachePath(getCacheDir().getAbsolutePath());
         settings.setAppCacheEnabled(true);
-
         settings.setLoadsImagesAutomatically(!savedPreferences.getBoolean("pref_doNotDownloadImages", false));//to save data
 
         settings.setDisplayZoomControls(false);
         settings.setAllowUniversalAccessFromFileURLs(true);
+        /*this.cookieManager = new CookieManager(new CookieStore() {
+            @Override
+            public void add(URI uri, HttpCookie cookie) {
+                String url = uri.toString();
+            }
+
+            @Override
+            public List<HttpCookie> get(URI uri) {
+                return null;
+            }
+
+            @Override
+            public List<HttpCookie> getCookies() {
+                return null;
+            }
+
+            @Override
+            public List<URI> getURIs() {
+                return null;
+            }
+
+            @Override
+            public boolean remove(URI uri, HttpCookie cookie) {
+                return false;
+            }
+
+            @Override
+            public boolean removeAll() {
+                return false;
+            }
+        },CookiePolicy.ACCEPT_ALL);
+
+        */
+        cookieManager = android.webkit.CookieManager.getInstance();
+        cookieManager.setAcceptThirdPartyCookies(webViewFacebook,true);
+
+        //webViewFacebook.setCookiesEnabled(true);
     }
+
+    private void SetupWebViewClient() {
+
+        //CookieHandler.setDefault(this.cookieManager);
+        cookieManager.setAcceptCookie(true);
+        //cookieManager.setAcceptThirdPartyCookies(this.webViewFacebook, true);
+        webViewFacebook.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+            }
+
+
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                super.onReceivedError(view, errorCode, description, failingUrl);
+
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest req, WebResourceError rerr) {
+                // Redirect to deprecated method, so you can use it in all SDK versions
+                //onReceivedError(view, rerr.getErrorCode(), rerr.getDescription().toString(), req.getUrl().toString());
+                super.onReceivedError(view, req, rerr);
+            }
+
+
+            @Override
+            public boolean shouldOverrideUrlLoading(final WebView view, final String url) {
+
+                return super.shouldOverrideUrlLoading(view, url);
+
+
+            }
+
+            @Override
+            public void onLoadResource(WebView view, String url) {
+                {
+                    if (url.contains(getString(R.string.urlFacebookMobileMessages))) {
+                        WebResourceRetrievalResponse webResourceRetrievalResponse = getWebResourceFromServer(Uri.parse(url), "GET", new HashMap<String, String>());
+                    }
+                    super.onLoadResource(view, url);
+                }
+            }
+
+            public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+                if (Build.VERSION.SDK_INT >= 11) {
+                    {
+                        return super.shouldInterceptRequest(view, url);
+                    }
+                } else {
+                    return null;
+                }
+            }
+
+            @Override
+            public void onFormResubmission(WebView view, Message dontResend, Message resend) {
+                {
+                    super.onFormResubmission(view, dontResend, resend);
+                }
+            }
+
+            @Override
+            public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+                {
+                    super.doUpdateVisitedHistory(view, url, isReload);
+                }
+            }
+
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                {
+                    super.onReceivedSslError(view, handler, error);
+                }
+            }
+
+            @Override
+            public void onReceivedClientCertRequest(WebView view, ClientCertRequest request) {
+                {
+                    super.onReceivedClientCertRequest(view, request);
+                }
+
+            }
+
+            @Override
+            public void onReceivedHttpAuthRequest(WebView view, HttpAuthHandler handler, String host, String realm) {
+                {
+                    super.onReceivedHttpAuthRequest(view, handler, host, realm);
+                }
+            }
+
+            @Override
+            public boolean shouldOverrideKeyEvent(WebView view, KeyEvent event) {
+                {
+                    return super.shouldOverrideKeyEvent(view, event);
+                }
+            }
+
+            @Override
+            public void onUnhandledKeyEvent(WebView view, KeyEvent event) {
+                {
+                    super.onUnhandledKeyEvent(view, event);
+                }
+            }
+
+            @Override
+            public void onScaleChanged(WebView view, float oldScale, float newScale) {
+                {
+                    super.onScaleChanged(view, oldScale, newScale);
+                }
+            }
+
+            public void onReceivedLoginRequest(WebView view, String realm, String account, String args) {
+                {
+                    super.onReceivedLoginRequest(view, realm, account, args);
+
+                }
+            }
+
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView webView, WebResourceRequest webResourceRequest) {
+                String url = webResourceRequest.getUrl().toString();
+                if (savedPreferences.getBoolean("pref_noBar", true)) {
+                    //if (url.contains("home.php") && !url.contains(".css") && !url.contains(".js")) {
+                    if (url.contains(getString(R.string.urlFacebookMobileMessagesComposer)))
+                    {
+                        //doUpdateVisitedHistory(webView,getString(R.string.urlFacebookMobileMessages),false);
+                    }
+                    if (webResourceRequest.getMethod().equals("GET")) {
+                    //if (webResourceRequest.isForMainFrame()) {
+                        WebResourceRetrievalResponse webResourceRetrievalResponse = getWebResourceFromServer(webResourceRequest.getUrl(), webResourceRequest.getMethod(), webResourceRequest.getRequestHeaders());
+                        //ByteArrayInputStream css = new ByteArrayInputStream(getString(R.string.jT1iNd9vJ_t_css).getBytes());
+                        Object webResourceRRequest;
+                        ByteArrayInputStream webResponse = null;
+
+                        if (webResourceRetrievalResponse != null && url.contains(getString(R.string.urlFacebookMobileMessages)))
+                        {
+                            Pattern pattern = Pattern.compile("(<div.*?data-sigil=\\\"MTopBlueBarHeader\\\"[^>]*)>");
+                            Matcher matcher = pattern.matcher(webResourceRetrievalResponse.getWebResourceRetrievalContent());
+                            StringBuffer newWebResponse = new StringBuffer();
+                            while (matcher.find()) {
+                                //matcher.appendReplacement(newCSSResponse, "._52z5{display: none;" + matcher.group(1) + "}");
+                                matcher.appendReplacement(newWebResponse, matcher.group(1) + " style=\"display:none;\"" + ">");
+                                //matcher.appendReplacement(newWebResponse,matcher.group(1)+">");
+                            }
+                            matcher.appendTail(newWebResponse);
+
+                        }
+                        if (webResourceRetrievalResponse != null && webResourceRetrievalResponse.getWebResourceRetrievalType().contains("text")) {
+                            //Pattern pattern = Pattern.compile("\\._52z5\\{([^}]*)\\}");
+                            Pattern pattern = Pattern.compile("(<div.*?data-sigil=\\\"MTopBlueBarHeader\\\"[^>]*)>");
+                            Matcher matcher = pattern.matcher(webResourceRetrievalResponse.getWebResourceRetrievalContent());
+                            StringBuffer newWebResponse = new StringBuffer();
+                            while (matcher.find()) {
+                                //matcher.appendReplacement(newCSSResponse, "._52z5{display: none;" + matcher.group(1) + "}");
+                                matcher.appendReplacement(newWebResponse, matcher.group(1) + " style=\"display:none;\"" + ">");
+                                //matcher.appendReplacement(newWebResponse,matcher.group(1)+">");
+                            }
+                            matcher.appendTail(newWebResponse);
+                            if (newWebResponse.toString().contains("cookie")) {
+                                boolean b = true;
+                                b = false;
+                            }
+                            //WebResourceResponse webResourceResponse = getCssWebResourceResponseFromAsset();//new WebResourceResponse("text/css", "utf-8", css);
+                            try {
+                                webResponse = new ByteArrayInputStream(newWebResponse.toString().getBytes("UTF-8"));
+                            } catch (UnsupportedEncodingException e) {
+                                e.printStackTrace();
+                            }
+                        } else if (webResourceRetrievalResponse != null) {
+
+                            if (webResourceRetrievalResponse.getWebResourceRetrievalByteContent()!=null) {
+                                int size = webResourceRetrievalResponse.getWebResourceRetrievalByteContent().length;
+                                byte[] bytes = webResourceRetrievalResponse.getWebResourceRetrievalByteContent();
+                                webResponse = new ByteArrayInputStream(bytes);
+                            }else{
+                                try {
+                                    webResponse = new ByteArrayInputStream(webResourceRetrievalResponse.getWebResourceRetrievalContent().getBytes("UTF-8"));
+                                } catch (UnsupportedEncodingException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+
+                        }
+                        WebResourceResponse webResourceResponse = null;
+
+                        HashMap<String, String> responseHeaders = new HashMap<String, String>();
+
+                        if (webResourceRetrievalResponse != null && webResourceRetrievalResponse.getWebResourceRetrievalHeaders() != null) {
+                            HashMap.Entry<String, List<String>> webResourceRetrievalHeader;
+                            Iterator it = webResourceRetrievalResponse.getWebResourceRetrievalHeaders().entrySet().iterator();
+                            while (it.hasNext()) {
+                                webResourceRetrievalHeader = (HashMap.Entry<String, List<String>>) it.next();
+                                StringBuilder webResourceRetrievalHeaderString = new StringBuilder();
+                                List<String> webResourceRetrievalHeaderList = webResourceRetrievalHeader.getValue();
+                                Iterator<String> webResourceRetrievalHeaderListIterator = webResourceRetrievalHeaderList.listIterator();
+                                if (webResourceRetrievalHeaderListIterator.hasNext()) {
+                                    webResourceRetrievalHeaderString.append(webResourceRetrievalHeaderListIterator.next());
+                                }
+                                while (webResourceRetrievalHeaderListIterator.hasNext()) {
+                                    webResourceRetrievalHeaderString.append(";" + webResourceRetrievalHeaderListIterator.next());
+                                }
+                                if (webResourceRetrievalHeader.getKey() != null) {
+                                    responseHeaders.put(webResourceRetrievalHeader.getKey(), webResourceRetrievalHeaderString.toString());
+                                }
+                            }
+
+                        }
+                            /*if (url.contains(".css"))
+                            {
+                                responseHeaders.put("access-control-allow-origin", "*");
+                                responseHeaders.put("timing-allow-origin", "*");
+                            }*/
+                        if (webResponse != null) {
+                            webResourceResponse = getUtf8EncodedWebResourceResponse(webResourceRetrievalResponse.getWebResourceRetrievalType(),webResourceRetrievalResponse.getWebResourceContentEncoding(), webResponse);
+                        }
+                        if (webResourceResponse != null) {
+                            webResourceResponse.setResponseHeaders(responseHeaders);
+
+                            webResourceResponse.setStatusCodeAndReasonPhrase(webResourceRetrievalResponse.getWebResourceRetrievalStatusCode(), webResourceRetrievalResponse.getWebResourceRetrievalStatusReason());
+                            /*webView.getSettings().setAllowUniversalAccessFromFileURLs(true);
+                            webView.getSettings().setJavaScriptEnabled(true);
+                            */
+                            if (webResourceRetrievalResponse.getWebResourceRetrievalType().contains("text") && webResourceRetrievalResponse.getWebResourceContentEncoding() == null) {
+                                webResourceResponse.setEncoding("UTF-8");
+                            } else {
+                                webResourceResponse.setEncoding(webResourceRetrievalResponse.getWebResourceContentEncoding());
+                            }
+
+                            webResourceResponse.setMimeType(webResourceRetrievalResponse.getWebResourceRetrievalType());
+
+                            return webResourceResponse;
+                        } else {
+                            return null;
+                        }
+                    } else {
+                        return super.shouldInterceptRequest(webView, webResourceRequest);
+                    }
+                    //return getCssWebResourceResponseFromAsset();
+                } else {
+                    return super.shouldInterceptRequest(webView, webResourceRequest);
+                }
+
+            }
+
+            /*@Override
+            public void onLoadResource(WebView view, String url) {
+                super.onLoadResource(view, url);
+            }*/
+
+
+        });
+    }
+
 
     private void SetupOnLongClickListener() {
         // OnLongClickListener for detecting long clicks on links and images
@@ -550,6 +1070,9 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
             //open the activity to show the pic
             startActivity(new Intent(this, PictureActivity.class).putExtra("URL", url));
         }
+        if (url.contains(getString(R.string.urlFacebookMobileMessages))){
+            webViewFacebook.getWebViewClient().doUpdateVisitedHistory(webViewFacebook,url,false);
+        }
         //webViewFacebook.loadUrl(url);
         //ApplyCustomCss();
 
@@ -683,6 +1206,11 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu, menu);
         this.menuBar = menu;
+        this.feed = menu.findItem(R.id.home).getIcon();
+        this.friends = menu.findItem(R.id.friends).getIcon();
+        this.notifications = menu.findItem(R.id.notifications).getIcon();
+        this.message = menu.findItem(R.id.message).getIcon();
+
         setMenuItemActive(this.menuBar, this.menuBar.findItem(R.id.home));
         return super.onCreateOptionsMenu(menu);
     }
@@ -710,13 +1238,13 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
             colorStateList = colorStateList.withAlpha(alphaSelected);
             setMenuItemColorState(menu, item.getItemId(), colorStateList);
         } else {
-            menu.findItem(R.id.home).getIcon().setAlpha(alphaNotSelected);
-            menu.findItem(R.id.friends).getIcon().setAlpha(alphaNotSelected);
-            menu.findItem(R.id.message).getIcon().setAlpha(alphaNotSelected);
-            menu.findItem(R.id.notifications).getIcon().setAlpha(alphaNotSelected);
-            menu.findItem(R.id.search).getIcon().setAlpha(alphaNotSelected);
-            menu.findItem(R.id.bookmarks).getIcon().setAlpha(alphaNotSelected);
-            item.getIcon().setAlpha(alphaSelected);
+            menu.findItem(R.id.home).getIcon().getCurrent().setAlpha(alphaNotSelected);
+            menu.findItem(R.id.friends).getIcon().getCurrent().setAlpha(alphaNotSelected);
+            menu.findItem(R.id.message).getIcon().getCurrent().setAlpha(alphaNotSelected);
+            menu.findItem(R.id.notifications).getIcon().getCurrent().setAlpha(alphaNotSelected);
+            menu.findItem(R.id.search).getIcon().getCurrent().setAlpha(alphaNotSelected);
+            menu.findItem(R.id.bookmarks).getIcon().getCurrent().setAlpha(alphaNotSelected);
+            item.getIcon().getCurrent().setAlpha(alphaSelected);
         }
     }
 
@@ -853,20 +1381,51 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
                                 }
                             }
                         }
-                        /*if (notificationStates.get("feed") > 0)
-                        {
-                            menu.findItem(R.id.home).setIcon(new BitmapDrawable(getResources(),setNotificationRect((BitmapDrawable)(menu.findItem(R.id.home).getIcon().getCurrent()),notificationStates.get("feed"))));
-                        }else if (notificationStates.get("requests") > 0)
-                        {
-                            menu.findItem(R.id.friends).setIcon(new BitmapDrawable(getResources(),setNotificationRect((BitmapDrawable)(menu.findItem(R.id.friends).getIcon().getCurrent()),notificationStates.get("feed"))));
-                        }else if (notificationStates.get("messages") > 0)
-                        {
-                            menu.findItem(R.id.message).setIcon(new BitmapDrawable(getResources(),setNotificationRect((BitmapDrawable)(menu.findItem(R.id.message).getIcon().getCurrent()),notificationStates.get("feed"))));
-                        }else if (notificationStates.get("notifications") > 0)
-                        {
-                            menu.findItem(R.id.notifications).setIcon(new BitmapDrawable(getResources(),setNotificationRect((BitmapDrawable)(menu.findItem(R.id.notifications).getIcon().getCurrent()),notificationStates.get("feed"))));
+                        if (notificationStates.get("feed") > 0) {
+                            MenuItem menuItem = menu.findItem(R.id.home);
+                            int alpha = menuItem.getIcon().getCurrent().getAlpha();
+                            menuItem.setIcon(new BitmapDrawable(getResources(), setNotificationRect((menu.findItem(R.id.home).getIcon().getCurrent()), alpha, notificationStates.get("feed"))));
+                            menuItem.getIcon().getCurrent().setAlpha(alpha);
+                        } else if (notificationStates.get("feed") == 0) {
+                            MenuItem menuItem = menu.findItem(R.id.home);
+                            int alpha = menuItem.getIcon().getCurrent().getAlpha();
+                            menuItem.setIcon(feed);
+                            menuItem.getIcon().getCurrent().setAlpha(alpha);
                         }
-                        */
+                        if (notificationStates.get("requests") > 0) {
+
+                            MenuItem menuItem = menu.findItem(R.id.friends);
+                            int alpha = menuItem.getIcon().getCurrent().getAlpha();
+                            menuItem.setIcon(new BitmapDrawable(getResources(), setNotificationRect((menu.findItem(R.id.friends).getIcon().getCurrent()), alpha, notificationStates.get("requests"))));
+                            menuItem.getIcon().getCurrent().setAlpha(alpha);
+                        } else if (notificationStates.get("requests") == 0) {
+                            MenuItem menuItem = menu.findItem(R.id.friends);
+                            int alpha = menuItem.getIcon().getCurrent().getAlpha();
+                            menuItem.setIcon(friends);
+                            menuItem.getIcon().getCurrent().setAlpha(alpha);
+                        }
+                        if (notificationStates.get("messages") > 0) {
+                            MenuItem menuItem = menu.findItem(R.id.message);
+                            int alpha = menuItem.getIcon().getCurrent().getAlpha();
+                            menuItem.setIcon(new BitmapDrawable(getResources(), setNotificationRect((menu.findItem(R.id.message).getIcon().getCurrent()), alpha, notificationStates.get("messages"))));
+                            menuItem.getIcon().getCurrent().setAlpha(alpha);
+                        } else if (notificationStates.get("messages") == 0) {
+                            MenuItem menuItem = menu.findItem(R.id.message);
+                            int alpha = menuItem.getIcon().getCurrent().getAlpha();
+                            menuItem.setIcon(message);
+                            menuItem.getIcon().getCurrent().setAlpha(alpha);
+                        }
+                        if (notificationStates.get("notifications") > 0) {
+                            MenuItem menuItem = menu.findItem(R.id.notifications);
+                            int alpha = menuItem.getIcon().getCurrent().getAlpha();
+                            menuItem.setIcon(new BitmapDrawable(getResources(), setNotificationRect((menu.findItem(R.id.notifications).getIcon().getCurrent()), alpha, notificationStates.get("notifications"))));
+                            menuItem.getIcon().getCurrent().setAlpha(alpha);
+                        } else if (notificationStates.get("notifications") == 0) {
+                            MenuItem menuItem = menu.findItem(R.id.notifications);
+                            int alpha = menuItem.getIcon().getCurrent().getAlpha();
+                            menuItem.setIcon(notifications);
+                            menuItem.getIcon().getCurrent().setAlpha(alpha);
+                        }
 
 
                     }
@@ -875,7 +1434,9 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
 
     }
 
-    public Bitmap setNotificationRect(BitmapDrawable icon, Integer count) {
+    public Bitmap setNotificationRect(Drawable backgroundIcon, int alphaState, Integer count) {
+        float scaleFactor = 1.4f;
+        Bitmap icon = null;
         float[] transform =
                 {1.0f, 0, 0, 0, 0,
                         0, 1.0f, 0, 0, 0,
@@ -883,24 +1444,62 @@ public class MainActivity extends AppCompatActivity implements MyAdvancedWebView
                         0, 0, 0, 1 - 0f, 0
 
                 };
+        float strokeWidth = 1.0f;
+        Paint alphaPaint = new Paint();
+        alphaPaint.setAlpha(255);
+        if (!(backgroundIcon instanceof BitmapDrawable)) {
+            if (backgroundIcon instanceof VectorDrawable) {
+                icon = Bitmap.createBitmap(backgroundIcon.getIntrinsicWidth(), backgroundIcon.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+                //alphaPaint.setAlpha(255);
+                //alphaPaint.setColor(Color.WHITE);
+                Canvas canvas = new Canvas(icon);
+
+                backgroundIcon.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+                backgroundIcon.setAlpha(255);
+                backgroundIcon.draw(canvas);
+
+            }
+        } else {
+            icon = ((BitmapDrawable) backgroundIcon).getBitmap();
+            Bitmap bitmap = Bitmap.createBitmap(icon.getWidth(), icon.getHeight(), Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            canvas.drawARGB(0, 0, 0, 0);
+            canvas.drawBitmap(icon, 0, 0, alphaPaint);
+            bitmap.setHasAlpha(true);
+            icon = bitmap;
+        }
+
         ColorFilter colorFilter = new ColorMatrixColorFilter(transform);
-        int height = icon.getBitmap().getHeight();
-        int width = icon.getBitmap().getWidth();
-        RectF rectF = new RectF(width - (width / 4), 0f, width, height - (height / 4));
-        Paint fillPaint = new Paint();
+        int height = icon.getHeight();
+        int width = icon.getWidth();
+        RectF rectF = new RectF(width - scaleFactor * (width / 3.0f), 0f, width, scaleFactor * (height / 3.0f));
+        Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         fillPaint.setStyle(Paint.Style.FILL_AND_STROKE);
-        fillPaint.setColor(0xff0000);
-        Bitmap iconWithNotification = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        fillPaint.setColor(Color.RED);
+        //fillPaint.setColorFilter(colorFilter);
+        Bitmap iconWithNotification = createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas combinedImage = new Canvas(iconWithNotification);
-        combinedImage.drawBitmap(icon.getBitmap(), new Matrix(), null);
+        combinedImage.drawBitmap(icon, new Matrix(), alphaPaint);
         Paint paint = new Paint();
         paint.setColorFilter(colorFilter);
-        combinedImage.drawRoundRect(rectF, 30, 30, fillPaint);
-        fillPaint.setColor(0xffffff);
+        combinedImage.drawRoundRect(rectF, 5, 5, fillPaint);
+        fillPaint.setColor(Color.WHITE);
+        fillPaint.setStyle(Paint.Style.STROKE);
+        fillPaint.setStrokeWidth(strokeWidth);
+        combinedImage.drawRoundRect(rectF, 5, 5, fillPaint);
+        fillPaint = new Paint();
         fillPaint.setStyle(Paint.Style.FILL);
-        fillPaint.setTextSize(height / 8);
-        fillPaint.setTextAlign(Paint.Align.LEFT);
-        combinedImage.drawText(count.toString(), width - (width / 4) + (height / 16), height / 16, fillPaint);
+        fillPaint.setColor(Color.WHITE);
+        fillPaint.setTextSize(scaleFactor * 0.8f * height / 3.0f);
+        fillPaint.setTextAlign(Paint.Align.CENTER);
+        Paint.FontMetrics fontMetrics = fillPaint.getFontMetrics();
+        Rect textRect = new Rect();
+        fillPaint.getTextBounds(count.toString(), 0, count.toString().length(), textRect);
+        //float fontHeight = (fontMetrics.top + fontMetrics.bottom);
+        float fontHeight = textRect.height();
+        //combinedImage.drawText(count.toString(),((width - scaleFactor*(width / 3.0f))+(width - (scaleFactor*(width / 3.0f))/2)-(height/3.0f)), (height - (scaleFactor*(((height/3.0f))))), fillPaint);
+        combinedImage.drawText(count.toString(), (width - ((scaleFactor * (width / 3.0f)) / 2)), ((scaleFactor * (height / 3.0f)) / 2.0f) + (fontHeight / 2.0f), fillPaint);
+        iconWithNotification.setHasAlpha(true);
         return iconWithNotification;
     }
     //*********************** OTHER ****************************
